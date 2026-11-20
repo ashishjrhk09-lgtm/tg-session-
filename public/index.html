@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Telegram Session</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0d10; --card: #16161c; --input: #1a1a20; --border: #2a2a32;
+            --text: #f0f0f5; --dim: #888893; --accent: #0088cc; --success: #22c55e; --error: #ef4444;
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { width: 100%; max-width: 420px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; text-align: center; }
+        .subtitle { color: var(--dim); text-align: center; margin-bottom: 28px; font-size: 0.9rem; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--dim); margin-bottom: 8px; }
+        input { width: 100%; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; color: var(--text); font-size: 1rem; transition: 0.2s; }
+        input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,136,204,0.2); }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover:not(:disabled) { background: #0099ee; }
+        .spinner { display: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .btn.loading .btn-text { display: none; }
+        .btn.loading .spinner { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .code-box { display: flex; justify-content: center; gap: 10px; margin: 24px 0; }
+        .code-box input { width: 52px; height: 60px; text-align: center; font-size: 1.5rem; font-weight: 700; -webkit-text-security: disc; }
+        .code-box input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,136,204,0.2); }
+        .output { margin-top: 24px; text-align: left; }
+        .output label { display: block; font-size: 0.85rem; font-weight: 500; color: var(--dim); margin-bottom: 10px; }
+        .output-wrap { position: relative; }
+        .output-wrap textarea { width: 100%; min-height: 100px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 14px 52px 14px 14px; color: var(--text); font-family: monospace; font-size: 0.75rem; line-height: 1.6; resize: vertical; }
+        .copy-btn { position: absolute; right: 8px; bottom: 8px; background: var(--accent); color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+        .status { text-align: center; padding: 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 16px; display: none; }
+        .status.success { display: block; background: rgba(34,197,94,0.15); color: var(--success); border: 1px solid var(--success); }
+        .status.error { display: block; background: rgba(239,68,68,0.15); color: var(--error); border: 1px solid var(--error); }
+        .status.info { display: block; background: rgba(0,136,204,0.15); color: var(--accent); border: 1px solid var(--accent); }
+        .note { font-size: 0.75rem; color: var(--dim); text-align: center; margin-top: 20px; line-height: 1.5; }
+        .note strong { color: var(--text); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Create Telegram Session</h1>
+            <p class="subtitle">Get your StringSession in 2 steps</p>
+
+            <div class="status" id="status"></div>
+
+            <!-- Step 1: Credentials -->
+            <div id="step1">
+                <div class="form-group">
+                    <label>API ID <span style="color:var(--error)">*</span></label>
+                    <input type="text" id="apiId" placeholder="1234567" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>API Hash <span style="color:var(--error)">*</span></label>
+                    <input type="password" id="apiHash" placeholder="abcdef123..." autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number <span style="color:var(--error)">*</span></label>
+                    <input type="tel" id="phone" placeholder="+919876543210" autocomplete="tel">
+                </div>
+                <button class="btn btn-primary" id="sendBtn">
+                    <span class="btn-text">Send Code</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+
+            <!-- Step 2: Verify Code -->
+            <div id="step2" style="display:none">
+                <p style="text-align:center;color:var(--dim);margin-bottom:20px">Enter 5-digit code from Telegram app</p>
+                <div class="code-box" id="codeInputs">
+                    <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                    <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                    <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                    <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                    <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                </div>
+                <div class="form-group" id="passwordField" style="display:none">
+                    <label>2FA Password</label>
+                    <input type="password" id="passwordInput" placeholder="Enter 2FA password">
+                </div>
+                <button class="btn btn-primary" id="verifyBtn" disabled>
+                    <span class="btn-text">Verify</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+
+            <!-- Result -->
+            <div id="result" style="display:none" class="output">
+                <label>StringSession (Copy & Save)</label>
+                <div class="output-wrap">
+                    <textarea id="sessionOutput" readonly></textarea>
+                    <button class="copy-btn" id="copyBtn">Copy</button>
+                </div>
+            </div>
+
+            <p class="note">
+                <strong>Get API keys:</strong> <a href="https://my.telegram.org" target="_blank" style="color:var(--accent)">my.telegram.org</a> → API Development tools<br>
+                <strong>Note:</strong> Code comes in <strong>Telegram app</strong> (not SMS). If connection fails, your network blocks Telegram - use mobile hotspot or VPN.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-detect WebSocket URL (works on localhost and deployed)
+        const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
+        const ws = new WebSocket(wsUrl);
+        let clientId = null, awaiting2fa = false;
+        
+        const $ = (id) => document.getElementById(id);
+        const status = ($id, msg, type) => { const el = $($id); el.textContent = msg; el.className = 'status ' + type; el.style.display = 'block'; };
+        const loading = (btn, on) => { btn.disabled = on; btn.classList.toggle('loading', on); };
+
+        ws.onopen = () => status('status', 'Connected', 'success');
+        ws.onclose = () => status('status', 'Disconnected - reconnecting...', 'error');
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            console.log('WS:', data.type);
+            
+            switch (data.type) {
+                case 'code_sent':
+                    $('step1').style.display = 'none';
+                    $('step2').style.display = 'block';
+                    status('status', data.message, 'info');
+                    $('codeInputs').querySelectorAll('input')[0].focus();
+                    break;
+                case 'ready':
+                    clientId = data.clientId;
+                    break;
+                case 'need_2fa':
+                    awaiting2fa = true;
+                    $('passwordField').style.display = 'block';
+                    $('verifyBtn').disabled = false;
+                    $('verifyBtn .btn-text').textContent = 'Verify Password';
+                    status('status', data.message, 'info');
+                    $('passwordInput').focus();
+                    break;
+                case 'done':
+                    $('step2').style.display = 'none';
+                    $('result').style.display = 'block';
+                    $('sessionOutput').value = data.sessionString;
+                    status('status', 'Done! Copy your StringSession', 'success');
+                    break;
+                case 'error':
+                    loading($('sendBtn'), false);
+                    loading($('verifyBtn'), false);
+                    status('status', data.message, 'error');
+                    break;
+            }
+        };
+
+        // Step 1: Send Code
+        $('sendBtn').onclick = async () => {
+            const apiId = $('apiId').value.trim();
+            const apiHash = $('apiHash').value.trim();
+            const phone = $('phone').value.trim();
+            if (!apiId || !apiHash || !phone) return status('status', 'All fields required', 'error');
+            
+            loading($('sendBtn'), true);
+            status('status', 'Connecting to Telegram...', 'info');
+            ws.send(JSON.stringify({ type: 'create', apiId, apiHash, phone }));
+        };
+
+        // Code inputs
+        const codeInputs = $('codeInputs').querySelectorAll('input');
+        codeInputs.forEach((input, i) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value && i < 4) codeInputs[i+1].focus();
+                checkCode();
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && i > 0) codeInputs[i-1].focus();
+            });
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const p = e.clipboardData.getData('text').slice(0,5);
+                p.split('').forEach((ch, idx) => { if (codeInputs[idx]) codeInputs[idx].value = ch; });
+                checkCode();
+                codeInputs[Math.min(p.length,4)].focus();
+            });
+        });
+
+        function checkCode() {
+            const code = Array.from(codeInputs).map(i => i.value).join('');
+            const ok = code.length === 5;
+            $('verifyBtn').disabled = awaiting2fa ? !$('passwordInput').value.trim() : !ok;
+            codeInputs.forEach(i => i.classList.toggle('filled', !!i.value));
+        }
+
+        // Verify
+        $('verifyBtn').onclick = () => {
+            if (awaiting2fa) {
+                const pw = $('passwordInput').value.trim();
+                if (!pw) return;
+                loading($('verifyBtn'), true);
+                ws.send(JSON.stringify({ type: 'verify', clientId, code: '', password: pw }));
+            } else {
+                const code = Array.from(codeInputs).map(i => i.value).join('');
+                if (code.length !== 5) return;
+                loading($('verifyBtn'), true);
+                ws.send(JSON.stringify({ type: 'verify', clientId, code }));
+            }
+        };
+
+        // Copy
+        $('copyBtn').onclick = () => {
+            $('sessionOutput').select();
+            document.execCommand('copy');
+            $('copyBtn').textContent = 'Copied!';
+            setTimeout(() => $('copyBtn').textContent = 'Copy', 2000);
+        };
+    </script>
+</body>
+</html>
