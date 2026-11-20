@@ -9,6 +9,14 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+function log(...args) { console.log(`[${new Date().toISOString()}]`, ...args); }
+
+function formatPhone(phone) {
+    let p = phone.trim().replace(/[^\d+]/g, '');
+    if (!p.startsWith('+')) p = '+' + p;
+    return p;
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -20,14 +28,6 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const clients = new Map();
-
-function log(...args) { console.log(`[${new Date().toISOString()}]`, ...args); }
-
-function formatPhone(phone) {
-    let p = phone.trim().replace(/[^\d+]/g, '');
-    if (!p.startsWith('+')) p = '+' + p;
-    return p;
-}
 
 wss.on('connection', (ws) => {
     log('WS connected');
@@ -53,13 +53,18 @@ async function doCreate(ws, data) {
     
     try {
         const session = new StringSession('');
+        
+        // Use production servers (gramJS uses these by default)
+        // dcId: 2 = Amsterdam (good for Europe/India), 5 = Singapore (Asia)
         const client = new TelegramClient(session, parseInt(apiId), apiHash, { 
-            connectionRetries: 3, 
-            timeout: 30000 
+            connectionRetries: 5, 
+            timeout: 60000,
+            // dcId: 2  // Uncomment to force specific DC (2=Amsterdam, 5=Singapore)
         });
         
+        log('Connecting to Telegram production servers...');
         await client.connect();
-        log('Connected to Telegram');
+        log('Connected to Telegram production');
 
         const authorized = await client.isUserAuthorized();
         if (authorized) {
@@ -67,7 +72,6 @@ async function doCreate(ws, data) {
             return;
         }
 
-        // gramJS v2 uses phoneNumber parameter
         await client.sendCode({ 
             phoneNumber: targetPhone, 
             apiId: parseInt(apiId), 
@@ -97,7 +101,6 @@ async function doVerify(ws, data) {
     if (!c) return ws.send(JSON.stringify({ type: 'error', message: 'Session expired' }));
 
     try {
-        // gramJS v2 uses different parameter names
         if (password) {
             await c.client.invoke({
                 _: 'auth.checkPassword',
@@ -107,7 +110,7 @@ async function doVerify(ws, data) {
             await c.client.invoke({
                 _: 'auth.signIn',
                 phoneNumber: c.targetPhone,
-                phoneCodeHash: '', // Will be filled by library
+                phoneCodeHash: '',
                 phoneCode: code
             });
         }
@@ -128,4 +131,4 @@ async function doVerify(ws, data) {
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-server.listen(PORT, () => log(`Server running on port ${PORT}`));
+server.listen(PORT, () => log(`Server running on port ${PORT} - Production mode`));
