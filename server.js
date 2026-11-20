@@ -16,10 +16,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Create HTTP server
 const server = http.createServer(app);
-
-// WebSocket server attached to HTTP server (works on Render/Railway)
 const wss = new WebSocketServer({ server });
 
 const clients = new Map();
@@ -56,7 +53,10 @@ async function doCreate(ws, data) {
     
     try {
         const session = new StringSession('');
-        const client = new TelegramClient(session, parseInt(apiId), apiHash, { connectionRetries: 3, timeout: 30000 });
+        const client = new TelegramClient(session, parseInt(apiId), apiHash, { 
+            connectionRetries: 3, 
+            timeout: 30000 
+        });
         
         await client.connect();
         log('Connected to Telegram');
@@ -67,7 +67,12 @@ async function doCreate(ws, data) {
             return;
         }
 
-        await client.sendCode({ phoneNumber: targetPhone, apiId: parseInt(apiId), apiHash });
+        // gramJS v2 uses phoneNumber parameter
+        await client.sendCode({ 
+            phoneNumber: targetPhone, 
+            apiId: parseInt(apiId), 
+            apiHash 
+        });
         log('Code sent to:', targetPhone);
         
         ws.send(JSON.stringify({ 
@@ -92,8 +97,20 @@ async function doVerify(ws, data) {
     if (!c) return ws.send(JSON.stringify({ type: 'error', message: 'Session expired' }));
 
     try {
-        if (password) await c.client.signInUser({ phone: c.targetPhone, password });
-        else await c.client.signInUser({ phone: c.targetPhone, code });
+        // gramJS v2 uses different parameter names
+        if (password) {
+            await c.client.invoke({
+                _: 'auth.checkPassword',
+                password: { _: 'inputCheckPasswordSRP', srpId: 0, A: Buffer.from(password) }
+            });
+        } else {
+            await c.client.invoke({
+                _: 'auth.signIn',
+                phoneNumber: c.targetPhone,
+                phoneCodeHash: '', // Will be filled by library
+                phoneCode: code
+            });
+        }
 
         const sessionString = c.client.session.save();
         log('Verified!');
@@ -101,7 +118,7 @@ async function doVerify(ws, data) {
         clients.delete(clientId);
     } catch (e) {
         log('Verify error:', e.message);
-        if (e.message.includes('PASSWORD') || e.message.includes('2FA')) {
+        if (e.message?.includes('PASSWORD') || e.message?.includes('2FA') || e.message?.includes('password')) {
             ws.send(JSON.stringify({ type: 'need_2fa', message: '2FA password required' }));
         } else {
             ws.send(JSON.stringify({ type: 'error', message: e.message }));
